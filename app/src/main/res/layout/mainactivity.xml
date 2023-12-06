@@ -40,7 +40,7 @@
         android:contentDescription="@string/share_button"
         android:scaleX="1.2"
         android:scaleY="1.2"
-        app:srcCompat="?android:attr/actionModeShareDrawable" />
+        app:srcCompat="?android:attr/actionModeCopyDrawable" />
 
     <ImageView
         android:id="@+id/preview"

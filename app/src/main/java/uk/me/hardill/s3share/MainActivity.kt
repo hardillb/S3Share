@@ -1,5 +1,7 @@
 package uk.me.hardill.s3share
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -11,7 +13,9 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.util.Log
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageButton
 import androidx.preference.PreferenceManager
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
@@ -37,6 +41,13 @@ class MainActivity : AppCompatActivity() {
 
         when {
             intent?.action == Intent.ACTION_SEND -> {
+                setContentView(R.layout.mainactivity)
+                findViewById<AppCompatImageButton>(R.id.shareButton)
+                    .setOnClickListener {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip: ClipData = ClipData.newPlainText("item link", link.text)
+                        clipboard.setPrimaryClip(clip)
+                    }
                 val credentials = BasicAWSCredentials(preferences.get("accessKey") as String, preferences.getValue("accessSecret") as String)
                 val s3Client = AmazonS3Client(credentials)
                 //if path based access
@@ -49,11 +60,10 @@ class MainActivity : AppCompatActivity() {
                 if (!(preferences.getValue("https") as Boolean)) {
                     https = ""
                 }
-                Log.d("endpoint", getString(R.string.endpoint, https, endpoint))
+//                Log.d("endpoint", getString(R.string.endpoint, https, endpoint))
                 s3Client.endpoint = getString(R.string.endpoint, https, endpoint)//preferences.getValue("endpoint") as String
 
                 if (intent.type?.startsWith("image/") == true) {
-                    setContentView(R.layout.mainactivity)
                     handleSendImage(intent = intent, s3Client = s3Client)
                 } else if (intent.type?.startsWith("video/") == true) {
                     setContentView(R.layout.mainactivity)
