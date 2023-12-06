@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="Credentials">
+
+        <EditTextPreference
+            android:key="accessKey"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="AccessKey" />
+        <EditTextPreference
+            android:key="accessSecret"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="AccessSecret" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="S3 Bucket Details">
+
+        <EditTextPreference
+            android:key="bucket"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="Bucket Name" />
+        <EditTextPreference
+            android:key="endpoint"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="Hostname/domain for S3 endpoint"
+            android:title="Endpoint" />
+    </PreferenceCategory>
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="pathBased"
+        android:title="Path based access" />
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="https"
+        android:title="HTTPS" />
+</PreferenceScreen>
