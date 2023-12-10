@@ -35,9 +35,6 @@ class MainActivity : AppCompatActivity() {
         setTheme(androidx.appcompat.R.style.Theme_AppCompat)
 
         val preferences = PreferenceManager.getDefaultSharedPreferences(this).all
-        preferences.forEach {
-            Log.d("Preferences", "${it.key} -> ${it.value}")
-        }
 
         when {
             intent?.action == Intent.ACTION_SEND -> {
@@ -60,13 +57,11 @@ class MainActivity : AppCompatActivity() {
                 if (!(preferences.getValue("https") as Boolean)) {
                     https = ""
                 }
-//                Log.d("endpoint", getString(R.string.endpoint, https, endpoint))
                 s3Client.endpoint = getString(R.string.endpoint, https, endpoint)//preferences.getValue("endpoint") as String
 
                 if (intent.type?.startsWith("image/") == true) {
                     handleSendImage(intent = intent, s3Client = s3Client)
                 } else if (intent.type?.startsWith("video/") == true) {
-                    setContentView(R.layout.mainactivity)
                     handleSendVideo(intent = intent, s3Client = s3Client)
                 }
             }

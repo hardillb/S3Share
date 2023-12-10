@@ -20,4 +20,6 @@
     <string name="endpoint">http%1$s://%2$s</string>
     <string name="url_path">http%1$s://%2$s/%3$s/%4$s</string>
     <string name="url_host">http%1$s://%2$s.%3$s/%4$s</string>
+
+    <string name="about">About: https://www.hardill.me.uk/wordpress/android-apps/s3share/</string>
 </resources>
