@@ -13,38 +13,38 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.util.Log
-import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.preference.PreferenceManager
 import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.S3ClientOptions
-import kotlinx.android.synthetic.main.mainactivity.*
-import java.io.InputStream
+import uk.me.hardill.s3share.databinding.MainactivityBinding
 
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var binding: MainactivityBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = MainactivityBinding.inflate(layoutInflater)
+        val view = binding.root
         setTheme(androidx.appcompat.R.style.Theme_AppCompat)
 
         val preferences = PreferenceManager.getDefaultSharedPreferences(this).all
 
         when {
             intent?.action == Intent.ACTION_SEND -> {
-                setContentView(R.layout.mainactivity)
+
+                setContentView(binding.root)
                 findViewById<AppCompatImageButton>(R.id.shareButton)
                     .setOnClickListener {
                         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip: ClipData = ClipData.newPlainText("item link", link.text)
+                        val clip: ClipData = ClipData.newPlainText("item link", binding.link.text)
                         clipboard.setPrimaryClip(clip)
                     }
+
                 val credentials = BasicAWSCredentials(preferences.get("accessKey") as String, preferences.getValue("accessSecret") as String)
                 val s3Client = AmazonS3Client(credentials)
                 //if path based access
@@ -60,9 +60,35 @@ class MainActivity : AppCompatActivity() {
                 s3Client.endpoint = getString(R.string.endpoint, https, endpoint)//preferences.getValue("endpoint") as String
 
                 if (intent.type?.startsWith("image/") == true) {
-                    handleSendImage(intent = intent, s3Client = s3Client)
+                    val uri = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as Uri
+                    Log.d("URI", uri.toString())
+                    binding.preview.setImageURI(uri)
+                    val cursor:Cursor? = contentResolver.query(uri, null, null, null, null)
+                    cursor?.moveToFirst()
+                    val nameColumn:Int? = cursor?.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val name:String? = cursor?.getString(nameColumn!!)
+                    cursor?.close()
+                    binding.fileName.text = name
+
+                    var backgroundIntent = Intent(this, BackgroundService::class.java)
+                    backgroundIntent.type = intent.type
+                    backgroundIntent.putExtra(Intent.EXTRA_STREAM, uri)
+                    backgroundIntent.setAction("uk.me.hardill.s3share.action.UPLOAD")
+                    startService(backgroundIntent)
+//                    handleSendImage(intent = intent, s3Client = s3Client)
                 } else if (intent.type?.startsWith("video/") == true) {
-                    handleSendVideo(intent = intent, s3Client = s3Client)
+                    val uri = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as Uri
+                    Log.d("URI", uri.toString())
+                    val thumb: Bitmap? = createVideoThumb(this, uri!!)
+                    thumb?.let {
+                        binding.preview.setImageBitmap(thumb)
+                    }
+                    var backgroundIntent = Intent(this, BackgroundService::class.java)
+                    backgroundIntent.type = intent.type
+                    backgroundIntent.putExtra(Intent.EXTRA_STREAM, uri)
+                    backgroundIntent.setAction("uk.me.hardill.s3share.action.UPLOAD")
+                    startService(backgroundIntent)
+//                    handleSendVideo(intent = intent, s3Client = s3Client)
                 }
             }
 
@@ -72,26 +98,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleSendImage(intent: Intent, s3Client: AmazonS3Client) {
-        (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let {
-            // Update UI to reflect image being shared
-            val uri:Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            preview.setImageURI(uri)
-            sendFile(uri!!, s3Client)
-        }
-    }
+//    private fun handleSendImage(intent: Intent, s3Client: AmazonS3Client) {
+//        (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let {
+//            // Update UI to reflect image being shared
+//            val uri:Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+//            binding.preview.setImageURI(uri)
+//            sendFile(uri!!, s3Client)
+//        }
+//    }
 
-    private fun handleSendVideo(intent: Intent, s3Client: AmazonS3Client) {
-        (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let {
-            // Update UI to reflect image being shared
-            val uri:Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            val thumb: Bitmap? = createVideoThumb(this, uri!!)
-            thumb?.let {
-                preview.setImageBitmap(thumb)
-            }
-            sendFile(uri, s3Client)
-        }
-    }
+//    private fun handleSendVideo(intent: Intent, s3Client: AmazonS3Client) {
+//        (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let {
+//            // Update UI to reflect image being shared
+//            val uri:Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+//            val thumb: Bitmap? = createVideoThumb(this, uri!!)
+//            thumb?.let {
+//                binding.preview.setImageBitmap(thumb)
+//            }
+//            sendFile(uri, s3Client)
+//        }
+//    }
 
 //    private fun handleSendMultipleImages(intent: Intent, s3Client: AmazonS3Client) {
 //        intent.getParcelableArrayListExtra<Parcelable>(Intent.EXTRA_STREAM)?.let {
@@ -112,52 +138,51 @@ class MainActivity : AppCompatActivity() {
         } catch (ex: Exception) {
         }
         return null
-
     }
 
-    private fun sendFile(uri: Uri, s3Client: AmazonS3Client) {
-        val cursor:Cursor? = contentResolver.query(uri, null, null, null, null)
-        cursor?.moveToFirst()
-        val nameColumn:Int? = cursor?.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        val name:String? = cursor?.getString(nameColumn!!)
-        cursor?.close()
-        fileName.text = name
-        val contentResolver:ContentResolver = this.contentResolver
-        val inputStream:InputStream? =  contentResolver.openInputStream(uri)
-        val preferences = PreferenceManager.getDefaultSharedPreferences(this).all
-        val trans = TransferUtility.builder().context(applicationContext)
-            .s3Client(s3Client)
-            .defaultBucket(preferences.getValue("bucket") as String)
-            .build()
-        val observer: TransferObserver = trans.upload(name, inputStream)
-        observer.setTransferListener(object: TransferListener {
-            override fun onStateChanged(id: Int, state: TransferState?) {
-                if (state == TransferState.COMPLETED) {
-                    Log.d("msg","success")
-                    var https = "s"
-                    if (!(preferences.getValue("https") as Boolean)) {
-                        https = ""
-                    }
-                    val endpoint = preferences.getValue("endpoint") as String
-                    val bucket = preferences.getValue("bucket") as String
-                    if ((preferences.getValue("pathBased") as Boolean)) {
-                        link.text = getString(R.string.url_path, https, endpoint, bucket, name )
-                    } else {
-                        link.text = getString(R.string.url_host, https, bucket, endpoint, name )
-                    }
-                } else if (state == TransferState.FAILED) {
-                    Log.d("msg","failed")
-                }
-            }
-
-            override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {
-                progressBar.max = 100
-                progressBar.progress = (100 * (bytesCurrent/bytesTotal)).toInt()
-            }
-
-            override fun onError(id: Int, ex: Exception?) {
-                Log.d("error", ex.toString())
-            }
-        })
-    }
+//    private fun sendFile(uri: Uri, s3Client: AmazonS3Client) {
+//        val cursor:Cursor? = contentResolver.query(uri, null, null, null, null)
+//        cursor?.moveToFirst()
+//        val nameColumn:Int? = cursor?.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+//        val name:String? = cursor?.getString(nameColumn!!)
+//        cursor?.close()
+//        binding.fileName.text = name
+//        val contentResolver:ContentResolver = this.contentResolver
+//        val inputStream:InputStream? =  contentResolver.openInputStream(uri)
+//        val preferences = PreferenceManager.getDefaultSharedPreferences(this).all
+//        val trans = TransferUtility.builder().context(applicationContext)
+//            .s3Client(s3Client)
+//            .defaultBucket(preferences.getValue("bucket") as String)
+//            .build()
+//        val observer: TransferObserver = trans.upload(name, inputStream)
+//        observer.setTransferListener(object: TransferListener {
+//            override fun onStateChanged(id: Int, state: TransferState?) {
+//                if (state == TransferState.COMPLETED) {
+//                    Log.d("msg","sucessfully sent")
+//                    var https = "s"
+//                    if (!(preferences.getValue("https") as Boolean)) {
+//                        https = ""
+//                    }
+//                    val endpoint = preferences.getValue("endpoint") as String
+//                    val bucket = preferences.getValue("bucket") as String
+//                    if ((preferences.getValue("pathBased") as Boolean)) {
+//                        binding.link.text = getString(R.string.url_path, https, endpoint, bucket, name )
+//                    } else {
+//                        binding.link.text = getString(R.string.url_host, https, bucket, endpoint, name )
+//                    }
+//                } else if (state == TransferState.FAILED) {
+//                    Log.d("msg","failed")
+//                }
+//            }
+//
+//            override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {
+//                binding.progressBar.max = 100
+//                binding.progressBar.progress = (100 * (bytesCurrent/bytesTotal)).toInt()
+//            }
+//
+//            override fun onError(id: Int, ex: Exception?) {
+//                Log.d("error", ex.toString())
+//            }
+//        })
+//    }
 }
