@@ -1,10 +1,12 @@
 package uk.me.hardill.s3share
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
@@ -15,6 +17,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
+import androidx.core.app.ActivityCompat
 import androidx.preference.PreferenceManager
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
@@ -90,12 +93,38 @@ class MainActivity : AppCompatActivity() {
                     startService(backgroundIntent)
 //                    handleSendVideo(intent = intent, s3Client = s3Client)
                 }
+                finish()
             }
 
             else -> {
                 setContentView(R.layout.setttings)
+
+                if (ActivityCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    val perms = arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+                    ActivityCompat.requestPermissions(this, perms, 1)
+                    return
+                }
             }
         }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
 //    private fun handleSendImage(intent: Intent, s3Client: AmazonS3Client) {
